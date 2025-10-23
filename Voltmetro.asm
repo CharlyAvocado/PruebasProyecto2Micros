@@ -6,7 +6,8 @@ valor  equ h'20'
 valor1 equ h'21'
 valor2 equ h'22'
 
-; -- Variables para conversiÛn ADC --
+temp_quotient_l  equ h'2F'
+temp_quotient_h  equ h'30'
 adc_resultado equ h'23'
 temp          equ h'24'
 centenas      equ h'25'
@@ -15,7 +16,7 @@ unidades      equ h'27'
 hex_high      equ h'28'
 hex_low       equ h'29'
 
-; -- Variables para conversiÛn a voltaje --
+; -- Variables para conversi√≥n a voltaje --
 volt_entero      equ h'2A'
 volt_dec1        equ h'2B'
 volt_dec2        equ h'2C'
@@ -214,7 +215,7 @@ MODO_VOLTAJE:
     goto    MODO_VOLTAJE
 
 ;================================================================
-;           *** NUEVA RUTINA PARA RESTAURAR EL TÕTULO ***
+;           *** NUEVA RUTINA PARA RESTAURAR EL T√çTULO ***
 ;================================================================
 restaurar_titulo:
     movlw   0x80
@@ -267,16 +268,16 @@ mult_100_loop:
     decfsz  temp, F
     goto    mult_100_loop
 
-    clrf    temp_quotient
+    clrf    temp_quotient_l
+    clrf    temp_quotient_h
 div_51_loop:
     movf    mult_resultado_h, W
-    sublw   0
     btfsc   STATUS, Z
     goto    div_check_low
     goto    div_subtract
 div_check_low:
-    movf    mult_resultado_l, W
-    sublw   d'51'
+    movlw   d'51'
+    subwf   mult_resultado_l, W
     btfss   STATUS, C
     goto    div_51_fin
 div_subtract:
@@ -284,32 +285,45 @@ div_subtract:
     subwf   mult_resultado_l, F
     btfss   STATUS, C
     decf    mult_resultado_h, F
-    incf    temp_quotient, F
+    incf    temp_quotient_l, F
+    btfsc   STATUS, Z
+    incf    temp_quotient_h, F
     goto    div_51_loop
 div_51_fin:
-    
-    movf    temp_quotient, W
-    movwf   temp
+
+    movf    temp_quotient_l, W
+    movwf   mult_resultado_l
+    movf    temp_quotient_h, W
+    movwf   mult_resultado_h
+
     clrf    volt_entero
     clrf    volt_dec1
 sep_unidades:
+    movf    mult_resultado_h, W
+    btfss   STATUS, Z
+    goto    sep_unidades_subtract
     movlw   d'100'
-    subwf   temp, W
+    subwf   mult_resultado_l, W
     btfss   STATUS, C
     goto    sep_decimas
+sep_unidades_subtract:
+    movlw   d'100'
+    subwf   mult_resultado_l, F
+    btfss   STATUS, C
+    decf    mult_resultado_h, F
     incf    volt_entero, F
-    movwf   temp
     goto    sep_unidades
 sep_decimas:
     movlw   d'10'
-    subwf   temp, W
+    subwf   mult_resultado_l, W
     btfss   STATUS, C
     goto    sep_centesimas
+    movlw   d'10'
+    subwf   mult_resultado_l, F
     incf    volt_dec1, F
-    movwf   temp
     goto    sep_decimas
 sep_centesimas:
-    movf    temp, W
+    movf    mult_resultado_l, W
     movwf   volt_dec2
 
     movlw   0xC0
@@ -339,11 +353,11 @@ sep_centesimas:
 ;           *** SUBRUTINAS ***
 ;================================================================
 leer_adc:
-    bsf     ADCON0,2    ; Inicia conversiÛn
-    call    ret200      ; Espera (retardo de adquisiciÛn)
+    bsf     ADCON0,2    ; Inicia conversi√≥n
+    call    ret200      ; Espera (retardo de adquisici√≥n)
     btfsc   ADCON0,2    ; Espera a que termine (bit GO/DONE = 0)
     goto    $-1
-    movf    ADRESH,W    ; Lee los 8 bits m·s significativos
+    movf    ADRESH,W    ; Lee los 8 bits m√°s significativos
     movwf   adc_resultado
     return
 ;----------------------------------------------------------------
@@ -471,9 +485,9 @@ calcular_unidades:
     call    datos
     movlw   'C'
     call    datos
-    movlw   ' ' ; Tu soluciÛn
+    movlw   ' ' ; Tu soluci√≥n
     call    datos
-    movlw   ' ' ; Tu soluciÛn
+    movlw   ' ' ; Tu soluci√≥n
     call    datos
     return
 ;----------------------------------------------------------------
@@ -506,9 +520,9 @@ mostrar_hexadecimal:
     call    datos
     movlw   'X'
     call    datos
-    movlw   ' ' ; Tu soluciÛn
+    movlw   ' ' ; Tu soluci√≥n
     call    datos
-    movlw   ' ' ; Tu soluciÛn
+    movlw   ' ' ; Tu soluci√≥n
     call    datos
     return
 ;----------------------------------------------------------------
@@ -547,7 +561,7 @@ inicia_lcd:
     return
 ;----------------------------------------------------------------
 ;       *** RUTINAS DE LCD CORREGIDAS ***
-;       Basado en el "Hola Mundo" que SÕ funcionÛ:
+;       Basado en el "Hola Mundo" que S√ç funcion√≥:
 ;       E (Enable) = RD0
 ;       RS         = RD1
 ;----------------------------------------------------------------
